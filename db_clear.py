@@ -1,138 +1,139 @@
-import sqlite3
-import time
+import psycopg2
+from psycopg2 import sql
+
+# Конфигурация подключения
+DATABASE_CONFIG = {
+    "host": "178.253.43.196",
+    "database": "default_db",
+    "user": "gen_user",
+    "password": "Luq3I)-IGyEEzo"
+}
+
+# Функция для подключения к базе данных
+def get_connection():
+    try:
+        return psycopg2.connect(**DATABASE_CONFIG)
+    except Exception as e:
+        print(f"Ошибка при подключении к базе данных: {e}")
+        raise
 
 # Функция для очистки базы данных
 def clear_database():
     try:
-        conn = sqlite3.connect('users.db')
-        cursor = conn.cursor()
-
-        # Устанавливаем режим WAL, чтобы избежать блокировки при работе с базой
-        cursor.execute("PRAGMA journal_mode=WAL")
-
-        # Закрываем соединение перед удалением таблиц, чтобы избежать блокировки
-        conn.commit()
-        conn.close()
-
-        time.sleep(1)  # Пауза перед выполнением дальнейших операций
-
-        # Теперь открываем новое соединение для очистки базы
-        conn = sqlite3.connect('users.db')
-        cursor = conn.cursor()
-
-        # Очистим таблицы (если они существуют)
-        cursor.execute("DROP TABLE IF EXISTS users")
-        cursor.execute("DROP TABLE IF EXISTS servers")
-
-        conn.commit()
-        conn.close()
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DROP TABLE IF EXISTS users CASCADE;")
+                cursor.execute("DROP TABLE IF EXISTS servers CASCADE;")
+                conn.commit()
         print("База данных очищена.")
-    except sqlite3.OperationalError as e:
-        print(f"Ошибка: {e}")
-        time.sleep(2)  # Пауза на случай блокировки и повторная попытка
+    except Exception as e:
+        print(f"Ошибка при очистке базы данных: {e}")
 
 # Функция для создания таблиц
 def create_tables():
-    conn = sqlite3.connect('users.db')
-    cursor = conn.cursor()
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Создаем таблицу servers
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS servers (
+                    id SERIAL PRIMARY KEY,
+                    address TEXT NOT NULL,
+                    user_count INTEGER DEFAULT 0
+                );
+                """)
 
-    # Создание таблицы servers
-    cursor.execute(""" 
-    CREATE TABLE IF NOT EXISTS servers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ip TEXT NOT NULL,
-        name TEXT NOT NULL
-    )
-    """)
-
-    # Создание таблицы users с добавленным полем active
-    cursor.execute(""" 
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        telegram_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        key TEXT NOT NULL,
-        server_id INTEGER NOT NULL,
-        active INTEGER DEFAULT 1,  -- Добавлено поле active для состояния подписки
-        FOREIGN KEY (server_id) REFERENCES servers(id)
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-    print("Таблицы созданы.")
+                # Создаем таблицу users
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    telegram_id INTEGER NOT NULL,
+                    password TEXT NOT NULL,
+                    vless_key TEXT NOT NULL,
+                    extension_access BOOLEAN DEFAULT FALSE,
+                    desktop_access BOOLEAN DEFAULT FALSE,
+                    balance NUMERIC DEFAULT 0.0,
+                    server_id INTEGER REFERENCES servers(id)
+                );
+                """)
+                conn.commit()
+        print("Таблицы успешно созданы.")
+    except Exception as e:
+        print(f"Ошибка при создании таблиц: {e}")
 
 # Функция для добавления сервера
-def add_server(ip, name):
-    conn = sqlite3.connect('users.db')
-    cursor = conn.cursor()
+def add_server(address):
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("INSERT INTO servers (address) VALUES (%s) RETURNING id;", (address,))
+                server_id = cursor.fetchone()[0]
+                conn.commit()
+        print(f"Сервер {address} добавлен с ID {server_id}.")
+        return server_id
+    except Exception as e:
+        print(f"Ошибка при добавлении сервера: {e}")
 
-    cursor.execute("INSERT INTO servers (ip, name) VALUES (?, ?)", (ip, name))
+# Функция для добавления пользователя
+def add_user(username, telegram_id, password, vless_key, server_id, extension_access=False, desktop_access=False, balance=0.0):
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                INSERT INTO users (username, telegram_id, password, vless_key, extension_access, desktop_access, balance, server_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id;
+                """, (username, telegram_id, password, vless_key, extension_access, desktop_access, balance, server_id))
+                user_id = cursor.fetchone()[0]
 
-    conn.commit()
-    conn.close()
-    print(f"Сервер {name} добавлен.")
+                # Обновляем количество пользователей на сервере
+                cursor.execute("UPDATE servers SET user_count = user_count + 1 WHERE id = %s;", (server_id,))
+                conn.commit()
+        print(f"Пользователь {username} добавлен с ID {user_id}.")
+        return user_id
+    except Exception as e:
+        print(f"Ошибка при добавлении пользователя: {e}")
 
-# Функция для добавления пользователя с новым полем active
-def add_user(telegram_id, username, key, server_id, active=1):
-    conn = sqlite3.connect('users.db')
-    cursor = conn.cursor()
-
-    cursor.execute("INSERT INTO users (telegram_id, username, key, server_id, active) VALUES (?, ?, ?, ?, ?)",
-                   (telegram_id, username, key, server_id, active))
-
-    conn.commit()
-    conn.close()
-    print(f"Пользователь {username} добавлен. Статус подписки: {'Активна' if active else 'Неактивна'}")
-
-# Функция для подсчета количества пользователей на сервере
+# Функция для подсчета пользователей на сервере
 def count_users_on_server(server_id):
-    conn = sqlite3.connect('users.db')
-    cursor = conn.cursor()
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT user_count FROM servers WHERE id = %s;", (server_id,))
+                count = cursor.fetchone()[0]
+        return count
+    except Exception as e:
+        print(f"Ошибка при подсчете пользователей на сервере: {e}")
+        return 0
 
-    cursor.execute("SELECT COUNT(*) FROM users WHERE server_id = ?", (server_id,))
-    count = cursor.fetchone()[0]
-
-    conn.close()
-    return count
-
-# Очистка базы данных и создание новой
+# Функция для сброса базы данных
 def reset_database():
-    clear_database()  # Очистить старую базу данных
+    clear_database()  # Очистить базу данных
+    create_tables()   # Создать таблицы
 
-    create_tables()  # Создать новую структуру базы данных
+    # Добавить тестовые серверы
+    #add_server('193.124.44.29')
+    add_server('213.176.65.44')
 
-    # Добавить серверы
-    add_server('193.124.44.29', 'Server 1')
-    add_server('194.87.220.214', 'Server 2')
+    print("База данных успешно сброшена и настроена.")
 
-    print("База данных и сервера успешно созданы.")
+# Основной блок выполнения
+if __name__ == "__main__":
+    reset_database()
 
-# Функция для добавления столбца vpn_link в таблицу users
-def add_column_vpn_link():
-    conn = sqlite3.connect('users.db')
-    cursor = conn.cursor()
+    # Пример добавления пользователя
+    user_id = add_user(
+        username="test_user",
+        telegram_id=123456789,
+        password="securepassword",
+        vless_key="vless-1234-5678",
+        server_id=1,
+        extension_access=True,
+        desktop_access=False,
+        balance=100.0
+    )
 
-    # Проверяем, существует ли столбец vpn_link в таблице users
-    cursor.execute("PRAGMA table_info(users)")
-    columns = cursor.fetchall()
-    column_names = [column[1] for column in columns]  # Получаем имена всех столбцов
-
-    if "vpn_link" not in column_names:
-        cursor.execute("ALTER TABLE users ADD COLUMN vpn_link TEXT")
-        print("Столбец vpn_link добавлен.")
-    else:
-        print("Столбец vpn_link уже существует.")
-
-    conn.commit()
-    conn.close()
-
-# Вызов функции для очистки и пересоздания базы данных
-reset_database()
-
-# Вызов добавления столбца
-add_column_vpn_link()
-
-# Пример подсчета пользователей на сервере 1
-user_count = count_users_on_server(1)
-print(f"Количество пользователей на сервере 1: {user_count}")
+    # Пример подсчета пользователей
+    count = count_users_on_server(1)
+    print(f"Количество пользователей на сервере 1: {count}")
