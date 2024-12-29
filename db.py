@@ -87,8 +87,8 @@ if __name__ == "__main__":
     add_column_vpn_link()
 
     # Пример добавления сервера
-    add_server('193.124.44.29', 'Server 1')
-    add_server('213.176.65.44', 'Server 2')
+    add_server('103.249.134.150', 'Server 1')
+    #add_server('213.176.65.44', 'Server 2')
 
     # Пример добавления пользователя
     add_user(
