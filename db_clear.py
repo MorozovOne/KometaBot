@@ -109,14 +109,14 @@ def count_users_on_server(server_id):
 
 # Функция для сброса базы данных
 def reset_database():
-    clear_database()  # Очистить базу данных
-    create_tables()   # Создать таблицы
+    #clear_database()  # Очистить базу данных
+    #create_tables()   # Создать таблицы
 
     # Добавить тестовые серверы
     #add_server('193.124.44.29')
-    add_server('213.176.65.44')
+    add_server('103.249.134.150')
 
-    print("База данных успешно сброшена и настроена.")
+    print("Сервер успешно добавлен")
 
 # Основной блок выполнения
 if __name__ == "__main__":
