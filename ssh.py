@@ -6,8 +6,9 @@ import psycopg2
 # Конфигурация серверов
 SERVERS = [
     #{"host": "193.124.44.29", "port": 8000, "ssh_user": "root", "password": "ouUsJTvsZ"},
-    {"host": "213.176.65.44", "port": 8000, "ssh_user": "root", "password": "b8tScUzXyQXV"},
+    #{"host": "213.176.65.44", "port": 8000, "ssh_user": "root", "password": "b8tScUzXyQXV"},
     #{"host": "109.196.101.118", "port": 8000, "ssh_user": "root", "password": "onTAT+8?2Nf.*G"}
+    {"host": "103.249.134.150", "port": 8000, "ssh_user": "root", "password": "1qnVFCdCuUHe"}
 ]
 
 # Конфигурация подключения к базе данных
