@@ -91,6 +91,8 @@ def handle_password(message, username):
                 message.chat.id,
                 f"Для приложения Кометы\nЛогин: {username}\nПароль: {password}"
             )
+            bot.send_message(message.chat.id, "Ваш новый ключ:")
+            bot.send_message(message.chat.id, vless_key)
         else:
             bot.send_message(message.chat.id, "Нет доступных серверов.")
     else:
@@ -104,6 +106,8 @@ def handle_password(message, username):
                 message.chat.id,
                 f"Для приложения Кометы\nЛогин: {username}\nПароль: {password}"
             )
+            bot.send_message(message.chat.id, "Ваш новый ключ:")
+            bot.send_message(message.chat.id, vless_key)
         else:
             bot.send_message(message.chat.id, "Нет доступных серверов.")
 
