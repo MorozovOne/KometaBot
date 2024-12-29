@@ -41,7 +41,7 @@ def create_key(username):
         "username": username,
         "proxies": {"vless": {"id": "35e4e39c-7d5c-4f4b-8b71-558e4f37ff53"}},
         "inbounds": {"vless": ["VLESS TCP REALITY"]},
-        "expire": 0,
+        "expire": 10000000,
         "data_limit": 0,
         "data_limit_reset_strategy": "no_reset",
         "status": "active",
