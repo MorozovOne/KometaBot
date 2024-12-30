@@ -12,23 +12,18 @@ refresh_token()
 # Обработка команды /start
 @bot.message_handler(commands=['start'])
 def handle_start(message):
-    # Получаем username, если он есть, иначе используем telegram_id
     username = message.from_user.username or str(message.from_user.id)
     welcome_text = (
         f"Привет! {username}\n\nМы находимся в бета-тестировании\n"
         f"Здесь вы можете создать аккаунт для приложения Кометы\n"
-        f"Вы уже можете воспользоваться нашими услугами\n\nМы пока не подключили оплату, но вы можете пока что поддержать нас рублём\n"
+        f"Вы уже можете воспользоваться нашими услугами\n\nМы пока не прикрутили оплату, но вы можете пока что поддержать нас рублём на свою совесть. Ключ стоит 50 рублей.\n"
         f"donationalerts.com/r/vagabond939\n\nВыберите действие:"
     )
 
-    # Создаем клавиатуру с кнопками
     start_menu = InlineKeyboardMarkup()
     start_menu.add(InlineKeyboardButton("Меню", callback_data="main_menu"))
-
-    # Отправляем приветственное сообщение с кнопкой для основного меню
     bot.send_message(message.chat.id, welcome_text, reply_markup=start_menu)
 
-# Обработка нажатия на кнопку "Основное меню" (после /start)
 @bot.callback_query_handler(func=lambda call: call.data == "main_menu")
 def show_main_menu(call):
     bot.send_message(call.message.chat.id, "Выберите действие:", reply_markup=get_main_menu())
@@ -57,7 +52,7 @@ def send_instruction(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "generate_key")
 def generate_key(call):
-    username = call.from_user.username or str(call.from_user.id)  # Используем username, если есть
+    username = call.from_user.username or str(call.from_user.id)
     existing_key = check_existing_key(call.from_user.id)
 
     if existing_key:
@@ -67,25 +62,19 @@ def generate_key(call):
         bot.send_message(call.message.chat.id, "Придумайте пароль:")
         bot.register_next_step_handler(call.message, handle_password, username)
 
-@bot.message_handler(func=lambda message: message.text)
 def handle_password(message, username):
     password = message.text
     existing_key = check_existing_key(message.from_user.id)
 
-    # Получаем telegram_id пользователя
     telegram_id = message.from_user.id
-
-    # Если у пользователя есть username, то используем его, иначе используем telegram_id
-    username = message.from_user.username or str(telegram_id)
+    username = username or str(telegram_id)
 
     if user_exists(username):
-        # Обновляем ключ и сохраняем новый пароль
         new_username = create_key(username)
         vless_key = get_key(new_username)
         servers = get_available_servers()
         if servers:
             server_id = servers[0]["id"]
-            # Обновляем данные пользователя в базе
             add_user(telegram_id, username, vless_key, server_id, password, True, True, 0)
             bot.send_message(
                 message.chat.id,
@@ -96,13 +85,11 @@ def handle_password(message, username):
         else:
             bot.send_message(message.chat.id, "Нет доступных серверов.")
     else:
-        # Создаём нового пользователя и ключ
         new_username = create_key(username)
         vless_key = get_key(new_username)
         servers = get_available_servers()
         if servers:
             server_id = servers[0]["id"]
-            # Добавляем нового пользователя
             add_user(telegram_id, username, vless_key, server_id, password, True, True, 0)
             bot.send_message(
                 message.chat.id,
@@ -115,12 +102,8 @@ def handle_password(message, username):
 
 @bot.callback_query_handler(func=lambda call: call.data == "delete_key")
 def delete_key_handler(call):
-    username = call.from_user.username or str(call.from_user.id)  # Используем username, если есть
-
-    # Удаление пользователя из вашей базы данных
-    delete_user(username)  # Убедитесь, что эта функция удаляет пользователя из вашей базы
-
-    # Отправка запроса на удаление ключа в Marzban
+    username = call.from_user.username or str(call.from_user.id)
+    delete_user(username)
     success = delete_key_from_marzban(username)
 
     if success:
@@ -128,5 +111,13 @@ def delete_key_handler(call):
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при удалении ключа.")
 
+@bot.callback_query_handler(func=lambda call: call.data == "pay_key")
+def pay_key(call):
+    bot.send_message(
+        call.message.chat.id,
+        "Оплата ключа стоит 50 рублей. Пожалуйста, поддержите нас рублём! Мы пока не прикрутили полноценную оплату, но вы можете оплатить на свою совесть, чтобы поддержать проект.\n\n"
+        "Ссылка для оплаты: [Оплатить ключ](https://www.donationalerts.com/r/vagabond939)",
+        parse_mode="Markdown"
+    )
 
 bot.polling()
